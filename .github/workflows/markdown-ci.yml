@@ -30,9 +30,13 @@ jobs:
 
       - name: Collect changed markdown files
         id: collect
-        if: steps.filter.outputs.docs == 'true'
         shell: bash
         run: |
+          if [ "${{ steps.filter.outputs.docs }}" != "true" ]; then
+            echo "files=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '^docs/.*\.md$' || true)
           files=$(printf '%s' "$files" | tr '\n' ' ')
           echo "files=$files" >> "$GITHUB_OUTPUT"
@@ -98,10 +102,9 @@ jobs:
           script: |
             const pr = context.payload.pull_request.number;
             const repo = context.repo;
-
             const previewUrl = `https://${pr}.ernie.readthedocs.io`;
 
-            const body = `### 📚 Documentation Preview\n\n🔗 **${previewUrl}**`;
+            const body = `### 📚 Documentation Preview\n\n🔗 ${previewUrl}`;
 
             const { data: comments } = await github.rest.issues.listComments({
               owner: repo.owner,
