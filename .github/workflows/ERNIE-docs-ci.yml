@@ -1,0 +1,50 @@
+name: ERNIE Documentation CI
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'source/**'
+      - '**/*.md'
+  push:
+    branches: [main]
+
+jobs:
+  markdownlint:
+    name: Markdown Style Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install markdown linter
+        run: |
+          pip install pymarkdownlntpip安装pymarkdownnt
+
+      - name: Run markdown lint
+        run: |
+          pymarkdown scan source/pymarkdown扫描源/
+
+  build-docs:
+    name: MkDocs Build Check
+    runs-on: ubuntu-latest
+    needs: markdownlint
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install docs dependencies
+        run: |
+          pip install -r docs/requirements.txtpip安装-r docs/requirements.txt
+
+      - name: Build documentation
+        run: |
+          mkdocs build --config-file docs/mkdocs.yml --strictmkdocs构建--配置文件docs/mkdocs.yml--严格
