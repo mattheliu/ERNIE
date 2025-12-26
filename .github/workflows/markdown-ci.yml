@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       docs: ${{ steps.filter.outputs.docs }}
-      md_files: ${{ steps.files.outputs.md_files }}
+      md_files: ${{ steps.collect.outputs.files }}
 
     steps:
       - uses: actions/checkout@v4
@@ -29,12 +29,13 @@ jobs:
               - 'docs/**'
 
       - name: Collect changed markdown files
-        id: files
+        id: collect
         if: steps.filter.outputs.docs == 'true'
+        shell: bash
         run: |
           files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '^docs/.*\.md$' || true)
           files=$(printf '%s' "$files" | tr '\n' ' ')
-          echo "md_files=$files" >> "$GITHUB_OUTPUT"
+          echo "files=$files" >> "$GITHUB_OUTPUT"
 
   markdown:
     name: Markdown Lint
@@ -64,6 +65,9 @@ jobs:
             exit 0
           fi
 
+          echo "Linting:"
+          echo "$files"
+
           pymarkdown scan $files
 
   docs-preview:
@@ -89,7 +93,6 @@ jobs:
           mkdocs build --config-file docs/mkdocs.yml
 
       - name: Publish Preview Comment
-        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
@@ -98,9 +101,7 @@ jobs:
 
             const previewUrl = `https://${pr}.ernie.readthedocs.io`;
 
-            const body = `### 📚 Documentation Preview
-
-            🔗 **${previewUrl}**`;
+            const body = `### 📚 Documentation Preview\n\n🔗 **${previewUrl}**`;
 
             const { data: comments } = await github.rest.issues.listComments({
               owner: repo.owner,
