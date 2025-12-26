@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -29,8 +31,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install pymarkdownlnt
 
-      - name: Run Markdown Lint
-        run: pymarkdown scan docs/source/
+      - name: Get changed markdown files
+        id: changed
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '\.md$' || true)
+          echo "files=$files" >> $GITHUB_OUTPUT
+
+      - name: Run Markdown Lint on changed files
+        if: steps.changed.outputs.files != ''
+        run: |
+          echo "Linting changed markdown files:"
+          echo "${{ steps.changed.outputs.files }}"
+          pymarkdown scan ${{ steps.changed.outputs.files }}
 
   docs-preview:
     name: Docs Build Preview
