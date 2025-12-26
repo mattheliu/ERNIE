@@ -1,8 +1,8 @@
-name: Docs Quality Gate1
+name: Docs Quality Gate
 
 on:
   pull_request:
-    branches: [ main, develop ]
+    branches: [ develop, main ]
 
 permissions:
   contents: read
@@ -14,9 +14,12 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       docs: ${{ steps.filter.outputs.docs }}
-      md_files: ${{ steps.filter.outputs.md_files }}
+      md_files: ${{ steps.files.outputs.md_files }}
+
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: dorny/paths-filter@v3
         id: filter
@@ -24,8 +27,14 @@ jobs:
           filters: |
             docs:
               - 'docs/**'
-            md_files:
-              - 'docs/**/*.md'
+
+      - name: Collect changed markdown files
+        id: files
+        if: steps.filter.outputs.docs == 'true'
+        run: |
+          files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '^docs/.*\.md$' || true)
+          files=$(printf '%s' "$files" | tr '\n' ' ')
+          echo "md_files=$files" >> "$GITHUB_OUTPUT"
 
   markdown:
     name: Markdown Lint
@@ -48,12 +57,7 @@ jobs:
       - name: Run Markdown Lint
         shell: bash
         run: |
-          echo "Linting changed markdown files:"
           files="${{ needs.changes.outputs.md_files }}"
-
-          printf '%s\n' "$files"
-
-          files="$(printf '%s\n' "$files" | tr '\n' ' ')"
 
           if [ -z "$files" ]; then
             echo "No markdown files to lint."
@@ -63,7 +67,7 @@ jobs:
           pymarkdown scan $files
 
   docs-preview:
-    name: Docs Build Preview
+    name: Docs Build & Preview
     needs: markdown
     if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
@@ -82,54 +86,42 @@ jobs:
 
       - name: Build MkDocs
         run: |
-          cd docs
-          mkdocs build
+          mkdocs build --config-file docs/mkdocs.yml
 
-      - name: Upload Docs Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: docs-preview
-          path: docs/site
-
-      - name: Comment PR with Preview Links
+      - name: Publish Preview Comment
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
-            const pr = context.payload.pull_request;
-            const prNumber = pr.number;
+            const pr = context.payload.pull_request.number;
+            const repo = context.repo;
 
-            const previewURL = `https://ernie--pr-${prNumber}.readthedocs.io`;
+            const previewUrl = `https://${pr}.ernie.readthedocs.io`;
 
-            const body = `
-            ### 📚 Documentation Preview
-            
-            🌐 **ReadTheDocs PR Preview (official)**
-            ${previewURL}
-            
-            > ReadTheDocs PR preview is automatically generated after this PR is created and may take a few minutes to become available.
-            > This comment auto-updates on every commit.`;
+            const body = `### 📚 Documentation Preview
+
+            🔗 **${previewUrl}**`;
 
             const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
+              owner: repo.owner,
+              repo: repo.repo,
+              issue_number: pr,
             });
 
-            const existing = comments.find(c => c.body.includes('### 📚 Documentation Preview'));
+            const existing = comments.find(c => c.body.startsWith('### 📚 Documentation Preview'));
 
             if (existing) {
               await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
+                owner: repo.owner,
+                repo: repo.repo,
                 comment_id: existing.id,
                 body,
               });
             } else {
               await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
+                owner: repo.owner,
+                repo: repo.repo,
+                issue_number: pr,
                 body,
               });
             }
