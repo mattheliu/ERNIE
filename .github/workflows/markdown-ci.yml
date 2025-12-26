@@ -25,8 +25,8 @@ jobs:
           pip install pymarkdownlnt
 
       - name: Run Markdown Lint
-        run: |
-          pymarkdown scan source/
+        working-directory: docs
+        run: pymarkdown scan source/
 
   docs-preview:
     name: Docs Build Preview
