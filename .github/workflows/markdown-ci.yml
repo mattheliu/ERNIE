@@ -48,8 +48,10 @@ jobs:
       - name: Run Markdown Lint
         run: |
           echo "Linting changed markdown files:"
-          files=$(echo "${{ needs.changes.outputs.md_files }}" | tr '\n' ' ')
-          echo "$files"
+          echo "${{ needs.changes.outputs.md_files }}"
+
+          files=$(printf "%s\n" "${{ needs.changes.outputs.md_files }}" | tr '\n' ' ')
+
           pymarkdown scan $files
 
   docs-preview:
