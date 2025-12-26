@@ -2,14 +2,11 @@ name: Docs Quality Gate
 
 on:
   pull_request:
-    branches: [ develop, main ]
+    branches: [ main, develop ]
 
 permissions:
   contents: read
   pull-requests: write
-
-env:
-  RTD_PROJECT: ernie
 
 jobs:
   changes:
@@ -31,92 +28,95 @@ jobs:
               - 'docs/**/*.md'
 
   markdown:
+    name: Markdown Lint
     needs: changes
     if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
-    name: Markdown Lint
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - run: pip install pymarkdownlnt
-
-      - name: Lint changed files
+      - name: Install pymarkdown
         run: |
+          python -m pip install --upgrade pip
+          pip install pymarkdownlnt
+
+      - name: Run Markdown Lint
+        shell: bash
+        run: |
+          echo "Linting changed markdown files:"
           files="${{ needs.changes.outputs.md_files }}"
-          [ -z "$files" ] && exit 0
+
+          printf '%s\n' "$files"
+
+          files="$(printf '%s\n' "$files" | tr '\n' ' ')"
+
+          if [ -z "$files" ]; then
+            echo "No markdown files to lint."
+            exit 0
+          fi
+
           pymarkdown scan $files
 
-  docs-build:
+  docs-preview:
+    name: Docs Build Preview
     needs: markdown
     if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
-    name: Validate MkDocs Build
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: |
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
           pip install -r docs/requirements.txt
-          mkdocs build --config-file docs/mkdocs.yml
 
-  deploy-rtd:
-    needs: docs-build
-    if: needs.changes.outputs.docs == 'true'
-    runs-on: ubuntu-latest
-    name: Trigger ReadTheDocs Build
-
-    steps:
-      - name: Trigger RTD build
-        id: trigger
+      - name: Build MkDocs
         run: |
-          response=$(curl -s -X POST \
-            -H "Authorization: Token ${{ secrets.RTD_TOKEN }}" \
-            https://readthedocs.org/api/v3/projects/${{ env.RTD_PROJECT }}/versions/latest/builds/)
-          echo "build_id=$(echo "$response" | jq -r '.id')" >> $GITHUB_OUTPUT
+          cd docs
+          mkdocs build
 
-      - name: Wait for build
-        run: |
-          for i in {1..30}; do
-            status=$(curl -s \
-              -H "Authorization: Token ${{ secrets.RTD_TOKEN }}" \
-              https://readthedocs.org/api/v3/builds/${{ steps.trigger.outputs.build_id }}/ | jq -r '.state')
-            echo "RTD status: $status"
-            [ "$status" = "finished" ] && exit 0
-            sleep 10
-          done
-          exit 1
+      - name: Upload Docs Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-preview
+          path: docs/site
 
-  comment:
-    needs: deploy-rtd
-    runs-on: ubuntu-latest
-    name: Update PR Comment
-
-    steps:
-      - uses: actions/github-script@v7
+      - name: Comment PR with Preview Links
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
         with:
           script: |
-            const marker = "### 📚 Documentation Preview Ready";
-            const body = `${marker}
+            const pr = context.payload.pull_request;
+            const prNumber = pr.number;
 
-            Your changes are now live on ReadTheDocs:
+            const previewURL = `https://ernie--pr-${prNumber}.readthedocs.io`;
 
-            🔗 **https://${process.env.RTD_PROJECT}.readthedocs.io**
-
-            This comment will be updated automatically on new commits.`;
+            const body = `
+            ### 📚 Documentation Preview
+            
+            🌐 **ReadTheDocs PR Preview (official)**
+            ${previewURL}
+            
+            > ReadTheDocs PR preview is automatically generated after this PR is created and may take a few minutes to become available.
+            > This comment auto-updates on every commit.`;
 
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
+              issue_number: context.issue.number,
             });
 
-            const existing = comments.find(c => c.body.startsWith(marker));
+            const existing = comments.find(c => c.body.includes('### 📚 Documentation Preview'));
 
             if (existing) {
               await github.rest.issues.updateComment({
@@ -129,7 +129,7 @@ jobs:
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: context.payload.pull_request.number,
+                issue_number: context.issue.number,
                 body,
               });
             }
