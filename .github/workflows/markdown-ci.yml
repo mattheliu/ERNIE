@@ -46,11 +46,22 @@ jobs:
           pip install pymarkdownlnt
 
       - name: Run Markdown Lint
+        shell: bash
         run: |
           echo "Linting changed markdown files:"
-          echo "${{ needs.changes.outputs.md_files }}"
 
-          files=$(printf "%s\n" "${{ needs.changes.outputs.md_files }}" | tr '\n' ' ')
+          files="${{ needs.changes.outputs.md_files }}"
+
+          # Print nicely
+          printf '%s\n' "$files"
+
+          # Convert to single-line argument list
+          files="$(printf '%s\n' "$files" | tr '\n' ' ')"
+
+          if [ -z "$files" ]; then
+            echo "No markdown files to lint."
+            exit 0
+          fi
 
           pymarkdown scan $files
 
