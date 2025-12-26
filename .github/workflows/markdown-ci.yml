@@ -1,4 +1,4 @@
-name: Docs Quality Gate
+name: Docs Quality Gate1
 
 on:
   pull_request:
@@ -50,7 +50,7 @@ jobs:
         run: |
           echo "Linting changed markdown files:"
 
-          files="${{ needs.changes.outputs.md_files }}"
+          files="${{ steps.md-files.outputs.files }}"
 
           if [ -z "$files" ]; then
             echo "No markdown files to lint."
@@ -59,10 +59,10 @@ jobs:
 
           echo "$files"
 
-          # Read file list safely into array
+          # Safely read multiline string into bash array
           mapfile -t file_array <<< "$files"
 
-          echo "Running pymarkdown on:"
+          echo "Resolved file list:"
           for f in "${file_array[@]}"; do
             echo "  - $f"
           done
