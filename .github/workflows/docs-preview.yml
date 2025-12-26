@@ -1,0 +1,91 @@
+name: Docs Preview & Markdown Lint
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  changes:
+    name: Detect changed docs
+    runs-on: ubuntu-latest
+    outputs:
+      docs_changed: ${{ steps.filter.outputs.docs }}
+      md_files: ${{ steps.collect.outputs.md_files }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Filter changed files
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            docs:
+              - 'docs/**'
+              - '**/*.md'
+
+      - name: Collect markdown files
+        id: collect
+        run: |
+          if [[ "${{ steps.filter.outputs.docs }}" != "true" ]]; then
+            echo "md_files=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '\.md$' | tr '\n' ' ')
+          echo "md_files=$files" >> $GITHUB_OUTPUT
+
+  markdown-lint:
+    name: Run Markdown Lint
+    needs: changes
+    if: needs.changes.outputs.docs_changed == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pymarkdown
+        run: pip install pymarkdownlnt
+
+      - name: Lint Markdown Files
+        run: |
+          echo "Linting changed markdown files:"
+          files="${{ needs.changes.outputs.md_files }}"
+          echo "$files"
+
+          if [ -z "$files" ]; then
+            echo "No markdown files to lint."
+            exit 0
+          fi
+
+          pymarkdown scan $files
+
+  docs-preview:
+    name: Build Docs Preview
+    needs: changes
+    if: needs.changes.outputs.docs_changed == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute preview URL
+        id: url
+        run: |
+          PREVIEW_URL="https://pr-${{ github.event.pull_request.number }}.ernie.readthedocs.io"
+          echo "url=$PREVIEW_URL" >> $GITHUB_OUTPUT
+
+      # 这里接你真实的文档构建与部署逻辑
+
+      - name: Comment preview link
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: docs-preview
+          message: |
+            ${{ steps.url.outputs.url }}
