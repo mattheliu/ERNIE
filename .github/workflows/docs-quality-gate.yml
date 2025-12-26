@@ -1,0 +1,92 @@
+name: Markdown Lint & Docs Preview
+
+on:
+  push:
+    branches: [ develop, main ]
+  pull_request:
+    branches: [ develop, main ]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  markdown:
+    name: Markdown Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pymarkdown
+        run: |
+          pip install --upgrade pip
+          pip install pymarkdownlnt
+
+      - name: Run Markdown Lint
+        run: pymarkdown scan docs/source/
+
+  docs-preview:
+    name: Docs Build Preview
+    runs-on: ubuntu-latest
+    needs: markdown
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pippip安装--升级pip
+          pip install -r docs/requirements.txtpip安装-r docs/requirements.txt
+
+      - name: Build MkDocs
+        run: |
+          mkdocs build --config-file docs/mkdocs.yml --site-dir site
+mkdocs构建--配置文件docs/mkdocs.yml--站点目录站点
+
+      - name: Upload Docs Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-preview
+          path: site
+
+      - name: Comment PR with preview info
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runId = context.runId;const runId=context.runId；const runId=context.runId；const runId=context.runId
+            const repo = context.repo;const repo=context.repo；const repo=context.repo；const repo=context.repo
+            const pr = context.payload.pull_request.number;const pr=context.payload.pull_request.number；
+const pr=context.payload.pull_request.number；const pr=context.payload.pull_request.number
+
+            const body = `
+### 📚 Documentation Preview Ready### 📚 文档预览就绪### 📚 文档预览就绪###📚 文档预览就绪
+
+Your documentation has been successfully built.
+
+**Preview artifact:**  
+➡️ Go to **Checks → Artifacts → docs-preview**  
+or download directly from the current workflow run.
+
+Workflow Run: https://github.com/${repo.owner}/${repo.repo}/actions/runs/${runId}
+`;
+
+            await github.rest.issues.createComment({
+              owner: repo.owner,
+              repo: repo.repo,
+              issue_number: pr,
+              body
+            });
