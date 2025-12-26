@@ -52,18 +52,22 @@ jobs:
 
           files="${{ needs.changes.outputs.md_files }}"
 
-          # Print nicely
-          printf '%s\n' "$files"
-
-          # Convert to single-line argument list
-          files="$(printf '%s\n' "$files" | tr '\n' ' ')"
-
           if [ -z "$files" ]; then
             echo "No markdown files to lint."
             exit 0
           fi
 
-          pymarkdown scan $files
+          echo "$files"
+
+          # Read file list safely into array
+          mapfile -t file_array <<< "$files"
+
+          echo "Running pymarkdown on:"
+          for f in "${file_array[@]}"; do
+            echo "  - $f"
+          done
+
+          pymarkdown scan "${file_array[@]}"
 
   docs-preview:
     name: Docs Build Preview
