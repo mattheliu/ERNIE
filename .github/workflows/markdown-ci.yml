@@ -1,4 +1,4 @@
-name: Markdown Lint & Docs Preview
+name: Docs Quality Gate
 
 on:
   push:
@@ -26,7 +26,7 @@ jobs:
 
       - name: Install pymarkdown
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install pymarkdownlnt
 
       - name: Run Markdown Lint
@@ -48,7 +48,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install -r docs/requirements.txt
 
       - name: Build MkDocs
@@ -76,15 +76,14 @@ jobs:
 Your documentation has been successfully built.
 
 **Preview artifact:**  
-➡️ Go to **Checks → Artifacts → docs-preview**  
-or download directly from the current workflow run.
+Go to **Checks → Artifacts → docs-preview** in this workflow run.
 
-Workflow Run: https://github.com/${repo.owner}/${repo.repo}/actions/runs/${runId}
+🔗 Workflow Run: https://github.com/${repo.owner}/${repo.repo}/actions/runs/${runId}
 `;
 
             await github.rest.issues.createComment({
               owner: repo.owner,
               repo: repo.repo,
               issue_number: pr,
-              body
+              body: body,
             });
