@@ -1,4 +1,4 @@
-name: Docs Quality Gate
+name: Docs Quality Gate1
 
 on:
   pull_request:
