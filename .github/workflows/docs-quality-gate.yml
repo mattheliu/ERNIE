@@ -1,4 +1,4 @@
-name: Markdown Lint & Docs Preview
+name: Docs Quality Gate
 
 on:
   push:
@@ -26,7 +26,7 @@ jobs:
 
       - name: Install pymarkdown
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install pymarkdownlnt
 
       - name: Run Markdown Lint
@@ -48,13 +48,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install --upgrade pippip安装--升级pip
-          pip install -r docs/requirements.txtpip安装-r docs/requirements.txt
+          python -m pip install --upgrade pip
+          pip install -r docs/requirements.txt
 
       - name: Build MkDocs
         run: |
           mkdocs build --config-file docs/mkdocs.yml --site-dir site
-mkdocs构建--配置文件docs/mkdocs.yml--站点目录站点
 
       - name: Upload Docs Artifact
         uses: actions/upload-artifact@v4
@@ -67,26 +66,24 @@ mkdocs构建--配置文件docs/mkdocs.yml--站点目录站点
         uses: actions/github-script@v7
         with:
           script: |
-            const runId = context.runId;const runId=context.runId；const runId=context.runId；const runId=context.runId
-            const repo = context.repo;const repo=context.repo；const repo=context.repo；const repo=context.repo
-            const pr = context.payload.pull_request.number;const pr=context.payload.pull_request.number；
-const pr=context.payload.pull_request.number；const pr=context.payload.pull_request.number
+            const runId = context.runId;
+            const repo = context.repo;
+            const pr = context.payload.pull_request.number;
 
             const body = `
-### 📚 Documentation Preview Ready### 📚 文档预览就绪### 📚 文档预览就绪###📚 文档预览就绪
+### 📚 Documentation Preview Ready
 
 Your documentation has been successfully built.
 
 **Preview artifact:**  
-➡️ Go to **Checks → Artifacts → docs-preview**  
-or download directly from the current workflow run.
+Go to **Checks → Artifacts → docs-preview** in this workflow run.
 
-Workflow Run: https://github.com/${repo.owner}/${repo.repo}/actions/runs/${runId}
+🔗 Workflow Run: https://github.com/${repo.owner}/${repo.repo}/actions/runs/${runId}
 `;
 
             await github.rest.issues.createComment({
               owner: repo.owner,
               repo: repo.repo,
               issue_number: pr,
-              body
+              body: body,
             });
