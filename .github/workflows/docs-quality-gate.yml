@@ -12,17 +12,15 @@ permissions:
 
 jobs:
   markdown:
-    name: Markdown Lint
+    name: Markdown Lint (PR Diff Only)
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
@@ -32,18 +30,23 @@ jobs:
           pip install pymarkdownlnt
 
       - name: Get changed markdown files
-        id: changed
+        id: md-files
         run: |
-          git fetch origin ${{ github.base_ref }}
-          files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '\.md$' || true)
-          echo "files=$files" >> $GITHUB_OUTPUT
+          files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '\.md$' || true)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$files" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Run Markdown Lint on changed files
-        if: steps.changed.outputs.files != ''
+      - name: Run Markdown Lint
+        if: steps.md-files.outputs.files != ''
         run: |
           echo "Linting changed markdown files:"
-          echo "${{ steps.changed.outputs.files }}"
-          pymarkdown scan ${{ steps.changed.outputs.files }}
+          echo "${{ steps.md-files.outputs.files }}"
+          pymarkdown scan ${{ steps.md-files.outputs.files }}
+
+      - name: Skip lint (no markdown changed)
+        if: steps.md-files.outputs.files == ''
+        run: echo "No markdown changes detected."
 
   docs-preview:
     name: Docs Build Preview
@@ -51,11 +54,9 @@ jobs:
     needs: markdown
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
